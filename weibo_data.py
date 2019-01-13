@@ -40,6 +40,9 @@ big_data = pd.concat([weibo_train_data_X,weibo_predict_data])
 min_date = big_data["time"].min()
 big_data["seconds"] = big_data["time"].map(lambda x:(x-min_date).seconds)
 
+big_data["days"] = big_data["seconds"].map(lambda x:x//86400)
+
+big_data["half_days"] = big_data["seconds"].map(lambda x:x//43200)
 #big_data find "\\"
 big_data["is_discuss"] = big_data["content"].str.contains(r"\\")
 
@@ -79,8 +82,24 @@ big_data["last_week_hot"] = big_data["week_of_year"].map(last_week_hot)
 
 big_data = big_data.drop(["week_of_year-1","week_of_year+1"],axis = 1)
 
+
+this_day_hot = big_data.groupby("days")["mid"].count()
+big_data["this_day_hot"] = big_data["days"].map(this_day_hot)
+
+big_data["days-1"] = big_data["days"] - 1
+next_day_hot = big_data.groupby("days-1")["mid"].count()
+big_data["next_day_hot"] = big_data["days"].map(next_day_hot)
+
+big_data["days+1"] = big_data["days"] + 1
+last_day_hot = big_data.groupby("days+1")["mid"].count()
+big_data["last_week_hot"] = big_data["days"].map(last_day_hot)
+
+big_data = big_data.drop(["days-1","days+1"],axis = 1)
+
 big_data["at_name"] = big_data["content"].map(lambda x:str(x).split("@"))
 big_data["at_name"] = big_data["at_name"].map(lambda x:x[1] if len(x)>1 else np.nan)
+big_data["at_name2"] = big_data["at_name"].map(lambda x:x[:2] if isinstance(x,str) else np.nan)
+big_data["at_name3"] = big_data["at_name"].map(lambda x:x[:3] if isinstance(x,str) else np.nan)
 big_data["at_name4"] = big_data["at_name"].map(lambda x:x[:4] if isinstance(x,str) else np.nan)
 big_data["at_name5"] = big_data["at_name"].map(lambda x:x[:5] if isinstance(x,str) else np.nan)
 big_data["at_name6"] = big_data["at_name"].map(lambda x:x[:6] if isinstance(x,str) else np.nan)
@@ -89,10 +108,87 @@ big_data["at_name8"] = big_data["at_name"].map(lambda x:x[:8] if isinstance(x,st
 big_data["at_name9"] = big_data["at_name"].map(lambda x:x[:9] if isinstance(x,str) else np.nan)
 big_data["at_name10"] = big_data["at_name"].map(lambda x:x[:10] if isinstance(x,str) else np.nan)
 
+t = big_data[["at_name2","mid"]].groupby("at_name2").count()["mid"]
+big_data["at_name2_count"] = big_data["at_name2"].map(t)
+
+t = big_data[["at_name3","mid"]].groupby("at_name3").count()["mid"]
+big_data["at_name3_count"] = big_data["at_name3"].map(t)
+
+t = big_data[["at_name4","mid"]].groupby("at_name4").count()["mid"]
+big_data["at_name4_count"] = big_data["at_name4"].map(t)
+
+t = big_data[["at_name5","mid"]].groupby("at_name5").count()["mid"]
+big_data["at_name5_count"] = big_data["at_name5"].map(t)
+
+t = big_data[["at_name6","mid"]].groupby("at_name6").count()["mid"]
+big_data["at_name6_count"] = big_data["at_name6"].map(t)
+
+t = big_data[["at_name7","mid"]].groupby("at_name7").count()["mid"]
+big_data["at_name7_count"] = big_data["at_name7"].map(t)
+
+t = big_data[["at_name8","mid"]].groupby("at_name8").count()["mid"]
+big_data["at_name8_count"] = big_data["at_name8"].map(t)
+
+t = big_data[["at_name9","mid"]].groupby("at_name9").count()["mid"]
+big_data["at_name9_count"] = big_data["at_name9"].map(t)
+
+t = big_data[["at_name10","mid"]].groupby("at_name10").count()["mid"]
+big_data["at_name10_count"] = big_data["at_name10"].map(t)
+
+t = ["at_name2","at_name2_count","at_name3","at_name3_count","at_name4",
+     "at_name4_count","at_name5","at_name5_count","at_name6","at_name6_count","at_name7","at_name7_count","at_name8",
+     "at_name8_count","at_name9","at_name9_count","at_name10","at_name10_count"]
+
+#提取@
+def extract_feature(series):
+    i = 0
+    if (str(series["at_name3"])) == "nan" | (len(str(series["at_name3"]))) == 0:
+            return np.nan
+    while i < len(t):
+        feature_name = t[i]
+        feature_name = str(series[feature_name])
+        i+=1
+        if i>=len(t):
+            return feature_name
+        feature_count =t[i]
+        feature_count = series[feature_count]
+        w = str(feature_name[-1])
+        i+=1
+        if not ('\u4e00' <= w <= '\u9fff'):
+            if not (("A"<= w <="Z") | ("a"<= w <="z")):
+                if not ("0" <= w <= "9"):
+                    if not ((w=="_") | (w=="-")):
+                        return feature_name[:-1]
+        if (w=="-") | (w=="_"):
+            continue
+            print(feature_count)
+        if (feature_count<10) & (i==1):
+            return np.nan
+        if feature_count<10:
+            return feature_name[:-1]
+        
+        
+#big_data[:100].apply(extract_feature,axis = 1)        
+big_data["at_name"] = big_data.apply(extract_feature,axis = 1)
+
 weibo_train_data_X = big_data[:tr_l]
 weibo_predict_data = big_data[tr_l:]
 
 weibo_train_data = pd.concat([weibo_train_data_X,weibo_train_data_y],axis = 1)
+
+t1 = weibo_train_data[["at_name","like_count"]].groupby("at_name").mean()["like_count"]
+t2 = weibo_train_data[["at_name","forward_count"]].groupby("at_name").mean()["forward_count"]
+t3 = weibo_train_data[["at_name","comment_count"]].groupby("at_name").mean()["comment_count"]
+t4 = weibo_train_data[["at_name","like_count"]].groupby("at_name").count()["like_count"]
+weibo_train_data["big_at_name_like_count"] = weibo_train_data["at_name"].map(t1)
+weibo_train_data["big_at_name_forward_count"] = weibo_train_data["at_name"].map(t2)
+weibo_train_data["big_at_name_comment_count"] = weibo_train_data["at_name"].map(t3)
+weibo_train_data["big_at_name_count"] = weibo_train_data["at_name"].map(t4)
+
+weibo_predict_data["big_at_name_like_count"] = weibo_predict_data["at_name"].map(t1)
+weibo_predict_data["big_at_name_forward_count"] = weibo_predict_data["at_name"].map(t2)
+weibo_predict_data["big_at_name_comment_count"] = weibo_predict_data["at_name"].map(t3)
+weibo_predict_data["big_at_name_count"] = weibo_predict_data["at_name"].map(t4)
 
 #x_train1 = extract_feature_data[extract_feature_data["time"]>=pd.datetime(2015,2,1) && extract_feature_data["time"]<=pd.datetime(2015,4,30)]
 """
@@ -206,111 +302,20 @@ test1 = pd.merge(test1,t2,how = "left",on = ["uid","hour"])
 test1 = pd.merge(test1,t3,how = "left",on = ["uid","hour"])
 test1 = pd.merge(test1,t4,how = "left",on = ["uid","hour"])
 
-t1 = train1[["at_name4","like_count"]].groupby("at_name4").mean()["like_count"]
 
-t1 = train1[["at_name4","like_count"]].groupby("at_name4").mean()["like_count"]
-t2 = train1[["at_name4","forward_count"]].groupby("at_name4").mean()["forward_count"]
-t3 = train1[["at_name4","comment_count"]].groupby("at_name4").mean()["comment_count"]
-t4 = train1[["at_name4","like_count"]].groupby("at_name4").count()["like_count"]
-train1["at_name4_like_count"] = train1["at_name4"].map(t1)
-train1["at_name4_forward_count"] = train1["at_name4"].map(t2)
-train1["at_name4_comment_count"] = train1["at_name4"].map(t3)
-train1["at_name4_count"] = train1["at_name4"].map(t4)
+t1 = train1[["at_name","like_count"]].groupby("at_name").mean()["like_count"]
+t2 = train1[["at_name","forward_count"]].groupby("at_name").mean()["forward_count"]
+t3 = train1[["at_name","comment_count"]].groupby("at_name").mean()["comment_count"]
+t4 = train1[["at_name","like_count"]].groupby("at_name").count()["like_count"]
+train1["at_name_like_count"] = train1["at_name"].map(t1)
+train1["at_name_forward_count"] = train1["at_name"].map(t2)
+train1["at_name_comment_count"] = train1["at_name"].map(t3)
+train1["at_name_count"] = train1["at_name"].map(t4)
 
-test1["at_name4_like_count"] = test1["at_name4"].map(t1)
-test1["at_name4_forward_count"] = test1["at_name4"].map(t2)
-test1["at_name4_comment_count"] = test1["at_name4"].map(t3)
-test1["at_name4_count"] = test1["at_name4"].map(t4)
-
-t1 = train1[["at_name5","like_count"]].groupby("at_name5").mean()["like_count"]
-t2 = train1[["at_name5","forward_count"]].groupby("at_name5").mean()["forward_count"]
-t3 = train1[["at_name5","comment_count"]].groupby("at_name5").mean()["comment_count"]
-t4 = train1[["at_name5","like_count"]].groupby("at_name5").count()["like_count"]
-
-train1["at_name5_like_count"] = train1["at_name5"].map(t1)
-train1["at_name5_forward_count"] = train1["at_name5"].map(t2)
-train1["at_name5_comment_count"] = train1["at_name5"].map(t3)
-train1["at_name5_count"] = train1["at_name5"].map(t4)
-
-test1["at_name5_like_count"] = test1["at_name5"].map(t1)
-test1["at_name5_forward_count"] = test1["at_name5"].map(t2)
-test1["at_name5_comment_count"] = test1["at_name5"].map(t3)
-test1["at_name5_count"] = test1["at_name5"].map(t4)
-
-t1 = train1[["at_name6","like_count"]].groupby("at_name6").mean()["like_count"]
-t2 = train1[["at_name6","forward_count"]].groupby("at_name6").mean()["forward_count"]
-t3 = train1[["at_name6","comment_count"]].groupby("at_name6").mean()["comment_count"]
-t4 = train1[["at_name6","like_count"]].groupby("at_name6").count()["like_count"]
-
-train1["at_name6_like_count"] = train1["at_name6"].map(t1)
-train1["at_name6_forward_count"] = train1["at_name6"].map(t2)
-train1["at_name6_comment_count"] = train1["at_name6"].map(t3)
-train1["at_name6_count"] = train1["at_name6"].map(t4)
-
-test1["at_name6_like_count"] = test1["at_name6"].map(t1)
-test1["at_name6_forward_count"] = test1["at_name6"].map(t2)
-test1["at_name6_comment_count"] = test1["at_name6"].map(t3)
-test1["at_name6_count"] = test1["at_name6"].map(t4)
-
-t1 = train1[["at_name7","like_count"]].groupby("at_name7").mean()["like_count"]
-t2 = train1[["at_name7","forward_count"]].groupby("at_name7").mean()["forward_count"]
-t3 = train1[["at_name7","comment_count"]].groupby("at_name7").mean()["comment_count"]
-t4 = train1[["at_name7","like_count"]].groupby("at_name7").count()["like_count"]
-
-train1["at_name7_like_count"] = train1["at_name7"].map(t1)
-train1["at_name7_forward_count"] = train1["at_name7"].map(t2)
-train1["at_name7_comment_count"] = train1["at_name7"].map(t3)
-train1["at_name7_count"] = train1["at_name7"].map(t4)
-
-test1["at_name7_like_count"] = test1["at_name7"].map(t1)
-test1["at_name7_forward_count"] = test1["at_name7"].map(t2)
-test1["at_name7_comment_count"] = test1["at_name7"].map(t3)
-test1["at_name7_count"] = test1["at_name7"].map(t4)
-
-t1 = train1[["at_name8","like_count"]].groupby("at_name8").mean()["like_count"]
-t2 = train1[["at_name8","forward_count"]].groupby("at_name8").mean()["forward_count"]
-t3 = train1[["at_name8","comment_count"]].groupby("at_name8").mean()["comment_count"]
-t4 = train1[["at_name8","like_count"]].groupby("at_name8").count()["like_count"]
-
-train1["at_name8_like_count"] = train1["at_name8"].map(t1)
-train1["at_name8_forward_count"] = train1["at_name8"].map(t2)
-train1["at_name8_comment_count"] = train1["at_name8"].map(t3)
-train1["at_name8_count"] = train1["at_name8"].map(t4)
-
-test1["at_name8_like_count"] = test1["at_name8"].map(t1)
-test1["at_name8_forward_count"] = test1["at_name8"].map(t2)
-test1["at_name8_comment_count"] = test1["at_name8"].map(t3)
-test1["at_name8_count"] = test1["at_name8"].map(t4)
-
-t1 = train1[["at_name9","like_count"]].groupby("at_name9").mean()["like_count"]
-t2 = train1[["at_name9","forward_count"]].groupby("at_name9").mean()["forward_count"]
-t3 = train1[["at_name9","comment_count"]].groupby("at_name9").mean()["comment_count"]
-t4 = train1[["at_name9","like_count"]].groupby("at_name9").count()["like_count"]
-
-train1["at_name9_like_count"] = train1["at_name9"].map(t1)
-train1["at_name9_forward_count"] = train1["at_name9"].map(t2)
-train1["at_name9_comment_count"] = train1["at_name9"].map(t3)
-train1["at_name9_count"] = train1["at_name9"].map(t4)
-
-test1["at_name9_like_count"] = test1["at_name9"].map(t1)
-test1["at_name9_forward_count"] = test1["at_name9"].map(t2)
-test1["at_name9_comment_count"] = test1["at_name9"].map(t3)
-test1["at_name9_count"] = test1["at_name9"].map(t4)
-
-t1 = train1[["at_name10","like_count"]].groupby("at_name10").mean()["like_count"]
-t2 = train1[["at_name10","forward_count"]].groupby("at_name10").mean()["forward_count"]
-t3 = train1[["at_name10","comment_count"]].groupby("at_name10").mean()["comment_count"]
-t4 = train1[["at_name10","like_count"]].groupby("at_name10").count()["like_count"]
-
-train1["at_name10_like_count"] = train1["at_name10"].map(t1)
-train1["at_name10_forward_count"] = train1["at_name10"].map(t2)
-train1["at_name10_comment_count"] = train1["at_name10"].map(t3)
-train1["at_name10_count"] = train1["at_name10"].map(t4)
-
-test1["at_name10_like_count"] = test1["at_name10"].map(t1)
-test1["at_name10_forward_count"] = test1["at_name10"].map(t2)
-test1["at_name10_comment_count"] = test1["at_name10"].map(t3)
-test1["at_name10_count"] = test1["at_name10"].map(t4)
+test1["at_name_like_count"] = test1["at_name"].map(t1)
+test1["at_name_forward_count"] = test1["at_name"].map(t2)
+test1["at_name_comment_count"] = test1["at_name"].map(t3)
+test1["at_name_count"] = test1["at_name"].map(t4)
 
 t1 = train1[["http_values","mid"]].groupby(["http_values"]).count().reset_index()
 t2 = train1[["http_values","forward_count"]].groupby(["http_values"]).mean().reset_index()
@@ -447,110 +452,20 @@ test3 = pd.merge(test3,t2,how = "left",on = ["http_values"])
 test3 = pd.merge(test3,t3,how = "left",on = ["http_values"])
 test3 = pd.merge(test3,t4,how = "left",on = ["http_values"])
 
-t1 = train3[["at_name4","like_count"]].groupby("at_name4").mean()["like_count"]
-t2 = train3[["at_name4","forward_count"]].groupby("at_name4").mean()["forward_count"]
-t3 = train3[["at_name4","comment_count"]].groupby("at_name4").mean()["comment_count"]
-t4 = train3[["at_name4","like_count"]].groupby("at_name4").count()["like_count"]
+t1 = train3[["at_name","like_count"]].groupby("at_name").mean()["like_count"]
+t2 = train3[["at_name","forward_count"]].groupby("at_name").mean()["forward_count"]
+t3 = train3[["at_name","comment_count"]].groupby("at_name").mean()["comment_count"]
+t4 = train3[["at_name","like_count"]].groupby("at_name").count()["like_count"]
 
-train3["at_name4_like_count"] = train3["at_name4"].map(t1)
-train3["at_name4_forward_count"] = train3["at_name4"].map(t2)
-train3["at_name4_comment_count"] = train3["at_name4"].map(t3)
-train3["at_name4_count"] = train3["at_name4"].map(t4)
+train3["at_name_like_count"] = train3["at_name"].map(t1)
+train3["at_name_forward_count"] = train3["at_name"].map(t2)
+train3["at_name_comment_count"] = train3["at_name"].map(t3)
+train3["at_name_count"] = train3["at_name"].map(t4)
 
-test3["at_name4_like_count"] = test3["at_name4"].map(t1)
-test3["at_name4_forward_count"] = test3["at_name4"].map(t2)
-test3["at_name4_comment_count"] = test3["at_name4"].map(t3)
-test3["at_name4_count"] = test3["at_name4"].map(t4)
-
-t1 = train3[["at_name5","like_count"]].groupby("at_name5").mean()["like_count"]
-t2 = train3[["at_name5","forward_count"]].groupby("at_name5").mean()["forward_count"]
-t3 = train3[["at_name5","comment_count"]].groupby("at_name5").mean()["comment_count"]
-t4 = train2[["at_name5","like_count"]].groupby("at_name5").count()["like_count"]
-
-train3["at_name5_like_count"] = train3["at_name5"].map(t1)
-train3["at_name5_forward_count"] = train3["at_name5"].map(t2)
-train3["at_name5_comment_count"] = train3["at_name5"].map(t3)
-train3["at_name5_count"] = train3["at_name5"].map(t4)
-
-test3["at_name5_like_count"] = test3["at_name5"].map(t1)
-test3["at_name5_forward_count"] = test3["at_name5"].map(t2)
-test3["at_name5_comment_count"] = test3["at_name5"].map(t3)
-test3["at_name5_count"] = test3["at_name5"].map(t4)
-
-t1 = train3[["at_name6","like_count"]].groupby("at_name6").mean()["like_count"]
-t2 = train3[["at_name6","forward_count"]].groupby("at_name6").mean()["forward_count"]
-t3 = train3[["at_name6","comment_count"]].groupby("at_name6").mean()["comment_count"]
-t4 = train3[["at_name6","like_count"]].groupby("at_name6").count()["like_count"]
-
-train3["at_name6_like_count"] = train3["at_name6"].map(t1)
-train3["at_name6_forward_count"] = train3["at_name6"].map(t2)
-train3["at_name6_comment_count"] = train3["at_name6"].map(t3)
-train3["at_name6_count"] = train3["at_name6"].map(t4)
-
-test3["at_name6_like_count"] = test3["at_name6"].map(t1)
-test3["at_name6_forward_count"] = test3["at_name6"].map(t2)
-test3["at_name6_comment_count"] = test3["at_name6"].map(t3)
-test3["at_name6_count"] = test3["at_name6"].map(t4)
-
-t1 = train3[["at_name7","like_count"]].groupby("at_name7").mean()["like_count"]
-t2 = train3[["at_name7","forward_count"]].groupby("at_name7").mean()["forward_count"]
-t3 = train3[["at_name7","comment_count"]].groupby("at_name7").mean()["comment_count"]
-t4 = train3[["at_name7","like_count"]].groupby("at_name7").count()["like_count"]
-
-train3["at_name7_like_count"] = train3["at_name7"].map(t1)
-train3["at_name7_forward_count"] = train3["at_name7"].map(t2)
-train3["at_name7_comment_count"] = train3["at_name7"].map(t3)
-train3["at_name7_count"] = train3["at_name7"].map(t4)
-
-test3["at_name7_like_count"] = test3["at_name7"].map(t1)
-test3["at_name7_forward_count"] = test3["at_name7"].map(t2)
-test3["at_name7_comment_count"] = test3["at_name7"].map(t3)
-test3["at_name7_count"] = test3["at_name7"].map(t4)
-
-t1 = train3[["at_name8","like_count"]].groupby("at_name8").mean()["like_count"]
-t2 = train3[["at_name8","forward_count"]].groupby("at_name8").mean()["forward_count"]
-t3 = train3[["at_name8","comment_count"]].groupby("at_name8").mean()["comment_count"]
-t4 = train3[["at_name8","like_count"]].groupby("at_name8").count()["like_count"]
-
-train3["at_name8_like_count"] = train3["at_name8"].map(t1)
-train3["at_name8_forward_count"] = train3["at_name8"].map(t2)
-train3["at_name8_comment_count"] = train3["at_name8"].map(t3)
-train3["at_name8_count"] = train3["at_name8"].map(t4)
-
-test3["at_name8_like_count"] = test3["at_name8"].map(t1)
-test3["at_name8_forward_count"] = test3["at_name8"].map(t2)
-test3["at_name8_comment_count"] = test3["at_name8"].map(t3)
-test3["at_name8_count"] = test3["at_name8"].map(t4)
-
-t1 = train3[["at_name9","like_count"]].groupby("at_name9").mean()["like_count"]
-t2 = train3[["at_name9","forward_count"]].groupby("at_name9").mean()["forward_count"]
-t3 = train3[["at_name9","comment_count"]].groupby("at_name9").mean()["comment_count"]
-t4 = train3[["at_name9","like_count"]].groupby("at_name9").count()["like_count"]
-
-train3["at_name9_like_count"] = train3["at_name9"].map(t1)
-train3["at_name9_forward_count"] = train3["at_name9"].map(t2)
-train3["at_name9_comment_count"] = train3["at_name9"].map(t3)
-train3["at_name9_count"] = train3["at_name9"].map(t4)
-
-test3["at_name9_like_count"] = test3["at_name9"].map(t1)
-test3["at_name9_forward_count"] = test3["at_name9"].map(t2)
-test3["at_name9_comment_count"] = test3["at_name9"].map(t3)
-test3["at_name9_count"] = test3["at_name9"].map(t4)
-
-t1 = train3[["at_name10","like_count"]].groupby("at_name10").mean()["like_count"]
-t2 = train3[["at_name10","forward_count"]].groupby("at_name10").mean()["forward_count"]
-t3 = train3[["at_name10","comment_count"]].groupby("at_name10").mean()["comment_count"]
-t4 = train3[["at_name10","like_count"]].groupby("at_name10").count()["like_count"]
-
-train3["at_name10_like_count"] = train3["at_name10"].map(t1)
-train3["at_name10_forward_count"] = train3["at_name10"].map(t2)
-train3["at_name10_comment_count"] = train3["at_name10"].map(t3)
-train3["at_name10_count"] = train3["at_name10"].map(t4)
-
-test3["at_name10_like_count"] = test3["at_name10"].map(t1)
-test3["at_name10_forward_count"] = test3["at_name10"].map(t2)
-test3["at_name10_comment_count"] = test3["at_name10"].map(t3)
-test3["at_name10_count"] = test3["at_name10"].map(t4)
+test3["at_name_like_count"] = test3["at_name"].map(t1)
+test3["at_name_forward_count"] = test3["at_name"].map(t2)
+test3["at_name_comment_count"] = test3["at_name"].map(t3)
+test3["at_name_count"] = test3["at_name"].map(t4)
 
 #Processing "uid" of data by train2
 #mean of forward_count group by uid
@@ -666,110 +581,20 @@ test2 = pd.merge(test2,t2,how = "left",on = ["http_values"])
 test2 = pd.merge(test2,t3,how = "left",on = ["http_values"])
 test2 = pd.merge(test2,t4,how = "left",on = ["http_values"])
 
-t1 = train2[["at_name4","like_count"]].groupby("at_name4").mean()["like_count"]
-t2 = train2[["at_name4","forward_count"]].groupby("at_name4").mean()["forward_count"]
-t3 = train2[["at_name4","comment_count"]].groupby("at_name4").mean()["comment_count"]
-t4 = train2[["at_name4","like_count"]].groupby("at_name4").count()["like_count"]
+t1 = train2[["at_name","like_count"]].groupby("at_name").mean()["like_count"]
+t2 = train2[["at_name","forward_count"]].groupby("at_name").mean()["forward_count"]
+t3 = train2[["at_name","comment_count"]].groupby("at_name").mean()["comment_count"]
+t4 = train2[["at_name","like_count"]].groupby("at_name").count()["like_count"]
 
-train2["at_name4_like_count"] = train2["at_name4"].map(t1)
-train2["at_name4_forward_count"] = train2["at_name4"].map(t2)
-train2["at_name4_comment_count"] = train2["at_name4"].map(t3)
-train2["at_name4_count"] = train2["at_name4"].map(t4)
+train2["at_name_like_count"] = train2["at_name"].map(t1)
+train2["at_name_forward_count"] = train2["at_name"].map(t2)
+train2["at_name_comment_count"] = train2["at_name"].map(t3)
+train2["at_name_count"] = train2["at_name"].map(t4)
 
-test2["at_name4_like_count"] = test2["at_name4"].map(t1)
-test2["at_name4_forward_count"] = test2["at_name4"].map(t2)
-test2["at_name4_comment_count"] = test2["at_name4"].map(t3)
-test2["at_name4_count"] = test2["at_name4"].map(t4)
-
-t1 = train2[["at_name5","like_count"]].groupby("at_name5").mean()["like_count"]
-t2 = train2[["at_name5","forward_count"]].groupby("at_name5").mean()["forward_count"]
-t3 = train2[["at_name5","comment_count"]].groupby("at_name5").mean()["comment_count"]
-t4 = train2[["at_name5","like_count"]].groupby("at_name5").count()["like_count"]
-
-train2["at_name5_like_count"] = train2["at_name5"].map(t1)
-train2["at_name5_forward_count"] = train2["at_name5"].map(t2)
-train2["at_name5_comment_count"] = train2["at_name5"].map(t3)
-train2["at_name5_count"] = train2["at_name5"].map(t4)
-
-test2["at_name5_like_count"] = test2["at_name5"].map(t1)
-test2["at_name5_forward_count"] = test2["at_name5"].map(t2)
-test2["at_name5_comment_count"] = test2["at_name5"].map(t3)
-test2["at_name5_count"] = test2["at_name5"].map(t4)
-
-t1 = train2[["at_name6","like_count"]].groupby("at_name6").mean()["like_count"]
-t2 = train2[["at_name6","forward_count"]].groupby("at_name6").mean()["forward_count"]
-t3 = train2[["at_name6","comment_count"]].groupby("at_name6").mean()["comment_count"]
-t4 = train2[["at_name6","like_count"]].groupby("at_name6").count()["like_count"]
-
-train2["at_name6_like_count"] = train2["at_name6"].map(t1)
-train2["at_name6_forward_count"] = train2["at_name6"].map(t2)
-train2["at_name6_comment_count"] = train2["at_name6"].map(t3)
-train2["at_name6_count"] = train2["at_name6"].map(t4)
-
-test2["at_name6_like_count"] = test2["at_name6"].map(t1)
-test2["at_name6_forward_count"] = test2["at_name6"].map(t2)
-test2["at_name6_comment_count"] = test2["at_name6"].map(t3)
-test2["at_name6_count"] = test2["at_name6"].map(t4)
-
-t1 = train2[["at_name7","like_count"]].groupby("at_name7").mean()["like_count"]
-t2 = train2[["at_name7","forward_count"]].groupby("at_name7").mean()["forward_count"]
-t3 = train2[["at_name7","comment_count"]].groupby("at_name7").mean()["comment_count"]
-t4 = train2[["at_name7","like_count"]].groupby("at_name7").count()["like_count"]
-
-train2["at_name7_like_count"] = train2["at_name7"].map(t1)
-train2["at_name7_forward_count"] = train2["at_name7"].map(t2)
-train2["at_name7_comment_count"] = train2["at_name7"].map(t3)
-train2["at_name7_count"] = train2["at_name7"].map(t4)
-
-test2["at_name7_like_count"] = test2["at_name7"].map(t1)
-test2["at_name7_forward_count"] = test2["at_name7"].map(t2)
-test2["at_name7_comment_count"] = test2["at_name7"].map(t3)
-test2["at_name7_count"] = test2["at_name7"].map(t4)
-
-t1 = train2[["at_name8","like_count"]].groupby("at_name8").mean()["like_count"]
-t2 = train2[["at_name8","forward_count"]].groupby("at_name8").mean()["forward_count"]
-t3 = train2[["at_name8","comment_count"]].groupby("at_name8").mean()["comment_count"]
-t4 = train2[["at_name8","like_count"]].groupby("at_name8").count()["like_count"]
-
-train2["at_name8_like_count"] = train2["at_name8"].map(t1)
-train2["at_name8_forward_count"] = train2["at_name8"].map(t2)
-train2["at_name8_comment_count"] = train2["at_name8"].map(t3)
-train2["at_name8_count"] = train2["at_name8"].map(t4)
-
-test2["at_name8_like_count"] = test2["at_name8"].map(t1)
-test2["at_name8_forward_count"] = test2["at_name8"].map(t2)
-test2["at_name8_comment_count"] = test2["at_name8"].map(t3)
-test2["at_name8_count"] = test2["at_name8"].map(t4)
-
-t1 = train2[["at_name9","like_count"]].groupby("at_name9").mean()["like_count"]
-t2 = train2[["at_name9","forward_count"]].groupby("at_name9").mean()["forward_count"]
-t3 = train2[["at_name9","comment_count"]].groupby("at_name9").mean()["comment_count"]
-t4 = train2[["at_name9","like_count"]].groupby("at_name9").count()["like_count"]
-
-train2["at_name9_like_count"] = train2["at_name9"].map(t1)
-train2["at_name9_forward_count"] = train2["at_name9"].map(t2)
-train2["at_name9_comment_count"] = train2["at_name9"].map(t3)
-train2["at_name9_count"] = train2["at_name9"].map(t4)
-
-test2["at_name9_like_count"] = test2["at_name9"].map(t1)
-test2["at_name9_forward_count"] = test2["at_name9"].map(t2)
-test2["at_name9_comment_count"] = test2["at_name9"].map(t3)
-test2["at_name9_count"] = test2["at_name9"].map(t4)
-
-t1 = train2[["at_name10","like_count"]].groupby("at_name10").mean()["like_count"]
-t2 = train2[["at_name10","forward_count"]].groupby("at_name10").mean()["forward_count"]
-t3 = train2[["at_name10","comment_count"]].groupby("at_name10").mean()["comment_count"]
-t4 = train2[["at_name10","like_count"]].groupby("at_name10").count()["like_count"]
-
-train2["at_name10_like_count"] = train2["at_name10"].map(t1)
-train2["at_name10_forward_count"] = train2["at_name10"].map(t2)
-train2["at_name10_comment_count"] = train2["at_name10"].map(t3)
-train2["at_name10_count"] = train2["at_name10"].map(t4)
-
-test2["at_name10_like_count"] = test2["at_name10"].map(t1)
-test2["at_name10_forward_count"] = test2["at_name10"].map(t2)
-test2["at_name10_comment_count"] = test2["at_name10"].map(t3)
-test2["at_name10_count"] = test2["at_name10"].map(t4)
+test2["at_name_like_count"] = test2["at_name"].map(t1)
+test2["at_name_forward_count"] = test2["at_name"].map(t2)
+test2["at_name_comment_count"] = test2["at_name"].map(t3)
+test2["at_name_count"] = test2["at_name"].map(t4)
 
 #Processing "content" of data by extract_feature_data train1
 #weibo_train_data["content"] = weibo_train_data["content"].astype("str")
@@ -936,7 +761,13 @@ test3 = pd.merge(test3,test3_uid_feature,right_index = True,left_on = "uid", how
 test3 = pd.concat([test3,test3_content_feature],axis = 1)
 
 #extract_feature =["uid_mean_forward","uid_mean_comment","uid_mean_like","uid_count","content_con_http","content_len","content_count_at","content_con_at","content_count_exc","content_con_exc","hot_topic_forward_mean","hot_topic_comment_mean","hot_topic_like_mean","hot_topic_count","hot_topic_time_delta","hot_topic_first"] 
-extract_feature = ["uid_mean_forward","uid_mean_comment","uid_mean_like","uid_count","content_con_http","content_count_at","content_con_at","content_con_exc","hot_topic_forward_mean","hot_topic_comment_mean","hot_topic_like_mean","hot_topic_count","hot_topic_time_delta","uid_hot_topic_count","uid_hot_topic_forward_mean","uid_hot_topic_comment_mean","uid_hot_topic_like_mean","weekday","is_discuss_count","video","hour","uid_hour_count","uid_hour_forward_mean","uid_hour_like_mean","uid_hour_comment_mean","hot_topic_first","have_title","week_of_year","this_week_hot","next_week_hot","last_week_hot","at_name4_like_count","at_name4_forward_count","at_name4_comment_count","at_name4_count","at_name5_like_count","at_name5_forward_count","at_name5_comment_count","at_name5_count","at_name6_like_count","at_name6_forward_count","at_name6_comment_count","at_name6_count","at_name7_like_count","at_name7_forward_count","at_name7_comment_count","at_name7_count","at_name8_like_count","at_name8_forward_count","at_name8_comment_count","at_name8_count","at_name9_like_count","at_name9_forward_count","at_name9_comment_count","at_name9_count","at_name10_like_count","at_name10_forward_count","at_name10_comment_count","at_name10_count","seconds"] 
+extract_feature = ["uid_mean_forward","uid_mean_comment","uid_mean_like","uid_count","content_con_http","content_count_at","content_con_at",
+                   "content_con_exc","hot_topic_forward_mean","hot_topic_comment_mean","hot_topic_like_mean","hot_topic_count","hot_topic_time_delta",
+                   "uid_hot_topic_count","uid_hot_topic_forward_mean","uid_hot_topic_comment_mean","uid_hot_topic_like_mean","weekday",
+                   "is_discuss_count","video","hour","uid_hour_count","uid_hour_forward_mean","uid_hour_like_mean","uid_hour_comment_mean",
+                   "hot_topic_first","have_title","week_of_year","this_week_hot","next_week_hot","last_week_hot","at_name_like_count",
+                   "at_name_forward_count","at_name_comment_count","at_name_count","big_at_name_like_count","big_at_name_forward_count",
+                   "big_at_name_comment_count","big_at_name_count","seconds","this_day_hot","next_day_hot","last_day_hot"] 
 x_train1 = train1[extract_feature]
 y_train1_forward_count = train1["forward_count"]
 y_train1_comment_count = train1["comment_count"]
