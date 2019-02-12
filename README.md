@@ -124,11 +124,12 @@ like_count
 
 #-------------------
 思路
+特征创建
 提取热门话题hot—topic（两个个#号之间）
 1.按热门话题分组计算forward_count、comment_count、like_count平均值
 2.该博文离自己的热门话题距离时间（随时间热门话题逐渐冷淡）
 
-是否包含http://字符
+是否包含http网页链接
 
 是否包含@字符
 
@@ -141,3 +142,7 @@ like_count
 按小时分组计算forward_count、comment_count、like_count平均值
 
 提取@的用户，进行分组计算forward_count、comment_count、like_count平均值，个数
+
+缺失值填充-999
+
+最后使用rf预测
