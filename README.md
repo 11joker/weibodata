@@ -121,3 +121,23 @@ like_count
 
  
 选手提交结果文件的转、评、赞值必须为整数不接受浮点数！注意：提交格式(.txt)：uid、mid、forward_count字段以tab键分隔，forward_count、comment_count、like_count字段间以逗号分隔
+
+#-------------------
+思路
+提取热门话题hot—topic（两个个#号之间）
+1.按热门话题分组计算forward_count、comment_count、like_count平均值
+2.该博文离自己的热门话题距离时间（随时间热门话题逐渐冷淡）
+
+是否包含http://字符
+
+是否包含@字符
+
+分解时间（几点，星期几，该年第几周）
+
+按用户分组计算forward_count、comment_count、like_count平均值，发布数量
+
+按用户-热点话题分组计算forward_count、comment_count、like_count平均值
+
+按小时分组计算forward_count、comment_count、like_count平均值
+
+提取@的用户，进行分组计算forward_count、comment_count、like_count平均值，个数
